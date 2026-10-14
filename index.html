@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snakes & Ladders</title>
+  <style>
+    :root {
+      --bg: #0f2a1f;
+      --board: #1a3d2e;
+      --light: #2d5a45;
+      --accent: #f0c75e;
+      --snake: #e85d4c;
+      --ladder: #5ec4a8;
+      --p1: #4ea8de;
+      --p2: #e89a3c;
+      --text: #e8f0eb;
+      --muted: #8aada0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background:
+        radial-gradient(ellipse at 20% 10%, #1a4a35 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 90%, #163528 0%, transparent 45%),
+        var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem 2rem;
+      gap: 1.25rem;
+    }
+
+    h1 {
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+
+    .layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      justify-content: center;
+      align-items: flex-start;
+      max-width: 920px;
+      width: 100%;
+    }
+
+    .board-wrap {
+      position: relative;
+      width: min(100%, 480px);
+      aspect-ratio: 1;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      grid-template-rows: repeat(10, 1fr);
+      width: 100%;
+      height: 100%;
+      border: 3px solid var(--accent);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--board);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .cell {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 2px 3px;
+      font-size: clamp(0.55rem, 1.8vw, 0.7rem);
+      font-weight: 600;
+      color: var(--muted);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      z-index: 1;
+    }
+
+    .cell:nth-child(odd) {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .cell.snake-start {
+      background: rgba(232, 93, 76, 0.22);
+      color: #ffb4a8;
+    }
+
+    .cell.ladder-start {
+      background: rgba(94, 196, 168, 0.22);
+      color: #a8f0dc;
+    }
+
+    .cell.finish {
+      background: rgba(240, 199, 94, 0.25);
+      color: var(--accent);
+    }
+
+    .cell .dest {
+      font-size: clamp(0.45rem, 1.4vw, 0.58rem);
+      font-weight: 700;
+      line-height: 1.1;
+      margin-top: auto;
+      align-self: flex-end;
+    }
+
+    .cell.ladder-start .dest { color: #7eecc8; }
+    .cell.snake-start .dest { color: #ff9a8b; }
+
+    .paths {
+      position: absolute;
+      inset: 3px;
+      width: calc(100% - 6px);
+      height: calc(100% - 6px);
+      pointer-events: none;
+      z-index: 2;
+      overflow: visible;
+    }
+
+    .tokens {
+      /* Align with board grid (inset matches #board border) */
+      position: absolute;
+      inset: 3px;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .token {
+      position: absolute;
+      width: 3.2%;
+      height: 3.2%;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      transition: left 0.45s ease, top 0.45s ease;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+      z-index: 2;
+    }
+
+    .token.p1 {
+      background: var(--p1);
+    }
+
+    .token.p2 {
+      background: var(--p2);
+    }
+
+    .panel {
+      flex: 1;
+      min-width: 220px;
+      max-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .status {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(240, 199, 94, 0.25);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .status p {
+      font-size: 0.95rem;
+      line-height: 1.4;
+      margin-bottom: 0.75rem;
+    }
+
+    .players {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .player-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      opacity: 0.55;
+      transition: opacity 0.2s;
+    }
+
+    .player-row.active {
+      opacity: 1;
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot.p1 { background: var(--p1); }
+    .dot.p2 { background: var(--p2); }
+
+    .dice-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 10px;
+      padding: 1.25rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #dice {
+      width: 64px;
+      height: 64px;
+      background: #f5f0e6;
+      color: #1a2e24;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 1.75rem;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 3px #d4cbb8, 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    #dice.shake {
+      animation: shake 0.4s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: rotate(0); }
+      25% { transform: rotate(-12deg) scale(1.05); }
+      75% { transform: rotate(12deg) scale(1.05); }
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 0.7rem 1.4rem;
+      background: var(--accent);
+      color: #1a2e24;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      transition: transform 0.15s, filter 0.15s;
+    }
+
+    button:hover:not(:disabled) {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--muted);
+      font-weight: 500;
+      padding: 0.45rem 1rem;
+      font-size: 0.85rem;
+    }
+
+    .legend {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .legend span.snake { color: var(--snake); }
+    .legend span.ladder { color: var(--ladder); }
+
+    .message {
+      min-height: 1.25rem;
+      font-size: 0.85rem;
+      color: var(--accent);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snakes & Ladders</h1>
+
+  <div class="layout">
+    <div class="board-wrap">
+      <div id="board"></div>
+      <svg class="paths" id="paths" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="tokens">
+        <div class="token p1" id="token1" title="Player 1"></div>
+        <div class="token p2" id="token2" title="Player 2"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="status">
+        <p id="turnText">Player 1's turn — roll the dice!</p>
+        <div class="players">
+          <div class="player-row active" id="row1">
+            <span class="dot p1"></span>
+            <span>Player 1 — square <span id="pos1">0</span></span>
+          </div>
+          <div class="player-row" id="row2">
+            <span class="dot p2"></span>
+            <span>Player 2 — square <span id="pos2">0</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dice-area">
+        <div id="dice">?</div>
+        <button id="rollBtn" type="button">Roll Dice</button>
+        <button class="secondary" id="resetBtn" type="button">New Game</button>
+        <p class="message" id="message"></p>
+      </div>
+
+      <p class="legend">
+        <span class="ladder">Ladders</span> climb up ·
+        <span class="snake">Snakes</span> slide down<br />
+        Numbers on colored cells show where you go.<br />
+        First to reach 100 wins. Exact roll needed.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const LADDERS = {
+      4: 14, 9: 31, 20: 38, 28: 84,
+      40: 59, 51: 67, 63: 81, 71: 91,
+    };
+    const SNAKES = {
+      17: 7, 54: 34, 62: 19, 64: 60,
+      87: 24, 93: 73, 95: 75, 99: 78,
+    };
+
+    const boardEl = document.getElementById("board");
+    const pathsEl = document.getElementById("paths");
+    const diceEl = document.getElementById("dice");
+    const rollBtn = document.getElementById("rollBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const turnText = document.getElementById("turnText");
+    const messageEl = document.getElementById("message");
+    const tokenEls = [null, document.getElementById("token1"), document.getElementById("token2")];
+    const posEls = [null, document.getElementById("pos1"), document.getElementById("pos2")];
+    const rowEls = [null, document.getElementById("row1"), document.getElementById("row2")];
+
+    let positions = [0, 0, 0];
+    let current = 1;
+    let busy = false;
+    let winner = null;
+
+    function cellCoords(n) {
+      if (n <= 0) return { col: -1, row: 10 };
+      const zero = n - 1;
+      const rowFromBottom = Math.floor(zero / 10);
+      const row = 9 - rowFromBottom;
+      let col = zero % 10;
+      if (rowFromBottom % 2 === 1) col = 9 - col;
+      return { col, row };
+    }
+
+    function cellCenter(n) {
+      const { col, row } = cellCoords(n);
+      return { x: col * 10 + 5, y: row * 10 + 5 };
+    }
+
+    function placeToken(player) {
+      const n = positions[player];
+      const el = tokenEls[player];
+      // Each cell is 10%. Small offsets keep both tokens inside the same square.
+      const ox = player === 1 ? 1.5 : 5.5;
+      const oy = player === 1 ? 3.5 : 5.5;
+
+      if (n === 0) {
+        el.style.left = ox + "%";
+        el.style.top = "101.5%";
+        return;
+      }
+
+      const { col, row } = cellCoords(n);
+      el.style.left = col * 10 + ox + "%";
+      el.style.top = row * 10 + oy + "%";
+    }
+
+    function drawLadder(from, to) {
+      const a = cellCenter(from);
+      const b = cellCenter(to);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const px = (-dy / len) * 1.1;
+      const py = (dx / len) * 1.1;
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("opacity", "0.9");
+
+      [[-1, -1], [1, 1]].forEach(([s]) => {
+        const rail = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        rail.setAttribute("x1", a.x + px * s);
+        rail.setAttribute("y1", a.y + py * s);
+        rail.setAttribute("x2", b.x + px * s);
+        rail.setAttribute("y2", b.y + py * s);
+        rail.setAttribute("stroke", "#6ed9b5");
+        rail.setAttribute("stroke-width", "0.55");
+        rail.setAttribute("stroke-linecap", "round");
+        g.appendChild(rail);
+      });
+
+      const rungs = Math.max(2, Math.round(len / 4.5));
+      for (let i = 1; i < rungs; i++) {
+        const t = i / rungs;
+        const x = a.x + dx * t;
+        const y = a.y + dy * t;
+        const rung = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        rung.setAttribute("x1", x - px);
+        rung.setAttribute("y1", y - py);
+        rung.setAttribute("x2", x + px);
+        rung.setAttribute("y2", y + py);
+        rung.setAttribute("stroke", "#8fe8c9");
+        rung.setAttribute("stroke-width", "0.45");
+        rung.setAttribute("stroke-linecap", "round");
+        g.appendChild(rung);
+      }
+      pathsEl.appendChild(g);
+    }
+
+    function drawSnake(from, to) {
+      const a = cellCenter(from);
+      const b = cellCenter(to);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const wave = Math.min(6, len * 0.22);
+      const c1x = a.x + dx * 0.33 + nx * wave;
+      const c1y = a.y + dy * 0.33 + ny * wave;
+      const c2x = a.x + dx * 0.66 - nx * wave;
+      const c2y = a.y + dy * 0.66 - ny * wave;
+
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+      const body = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      body.setAttribute(
+        "d",
+        "M " + a.x + " " + a.y + " C " + c1x + " " + c1y + ", " + c2x + " " + c2y + ", " + b.x + " " + b.y
+      );
+      body.setAttribute("fill", "none");
+      body.setAttribute("stroke", "#e85d4c");
+      body.setAttribute("stroke-width", "1.35");
+      body.setAttribute("stroke-linecap", "round");
+      body.setAttribute("opacity", "0.85");
+      g.appendChild(body);
+
+      const head = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      head.setAttribute("cx", a.x);
+      head.setAttribute("cy", a.y);
+      head.setAttribute("r", "1.35");
+      head.setAttribute("fill", "#ff6b5a");
+      g.appendChild(head);
+
+      const eye1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      eye1.setAttribute("cx", a.x - 0.35);
+      eye1.setAttribute("cy", a.y - 0.35);
+      eye1.setAttribute("r", "0.28");
+      eye1.setAttribute("fill", "#1a2e24");
+      g.appendChild(eye1);
+
+      const eye2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      eye2.setAttribute("cx", a.x + 0.4);
+      eye2.setAttribute("cy", a.y - 0.3);
+      eye2.setAttribute("r", "0.28");
+      eye2.setAttribute("fill", "#1a2e24");
+      g.appendChild(eye2);
+
+      const tip = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      tip.setAttribute("cx", b.x);
+      tip.setAttribute("cy", b.y);
+      tip.setAttribute("r", "0.55");
+      tip.setAttribute("fill", "#c94a3c");
+      g.appendChild(tip);
+
+      pathsEl.appendChild(g);
+    }
+
+    function drawPaths() {
+      pathsEl.innerHTML = "";
+      Object.keys(LADDERS).forEach((from) => drawLadder(+from, LADDERS[from]));
+      Object.keys(SNAKES).forEach((from) => drawSnake(+from, SNAKES[from]));
+    }
+
+    function buildBoard() {
+      boardEl.innerHTML = "";
+      for (let row = 0; row < 10; row++) {
+        const rowFromBottom = 9 - row;
+        for (let col = 0; col < 10; col++) {
+          let num;
+          if (rowFromBottom % 2 === 0) {
+            num = rowFromBottom * 10 + col + 1;
+          } else {
+            num = rowFromBottom * 10 + (9 - col) + 1;
+          }
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          cell.appendChild(document.createTextNode(String(num)));
+
+          if (LADDERS[num]) {
+            cell.classList.add("ladder-start");
+            cell.title = "Ladder up to " + LADDERS[num];
+            const dest = document.createElement("span");
+            dest.className = "dest";
+            dest.textContent = "↑" + LADDERS[num];
+            cell.appendChild(dest);
+          }
+          if (SNAKES[num]) {
+            cell.classList.add("snake-start");
+            cell.title = "Snake down to " + SNAKES[num];
+            const dest = document.createElement("span");
+            dest.className = "dest";
+            dest.textContent = "↓" + SNAKES[num];
+            cell.appendChild(dest);
+          }
+          if (num === 100) cell.classList.add("finish");
+          boardEl.appendChild(cell);
+        }
+      }
+      drawPaths();
+    }
+
+    function setTurnUI() {
+      rowEls[1].classList.toggle("active", current === 1 && !winner);
+      rowEls[2].classList.toggle("active", current === 2 && !winner);
+      posEls[1].textContent = positions[1];
+      posEls[2].textContent = positions[2];
+      if (winner) {
+        turnText.textContent = "Player " + winner + " wins!";
+        rollBtn.disabled = true;
+      } else {
+        turnText.textContent = "Player " + current + "'s turn — roll the dice!";
+        rollBtn.disabled = busy;
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise((r) => setTimeout(r, ms));
+    }
+
+    async function roll() {
+      if (busy || winner) return;
+      busy = true;
+      rollBtn.disabled = true;
+      messageEl.textContent = "";
+
+      diceEl.classList.remove("shake");
+      void diceEl.offsetWidth;
+      diceEl.classList.add("shake");
+
+      const value = 1 + Math.floor(Math.random() * 6);
+      diceEl.textContent = value;
+      await sleep(400);
+
+      const from = positions[current];
+      let next = from + value;
+
+      if (next > 100) {
+        messageEl.textContent = "Need exact roll to finish — stay put.";
+        await sleep(700);
+        current = current === 1 ? 2 : 1;
+        busy = false;
+        setTurnUI();
+        return;
+      }
+
+      positions[current] = next;
+      placeToken(current);
+      setTurnUI();
+      await sleep(500);
+
+      if (LADDERS[next]) {
+        messageEl.textContent = "Ladder! Climb to " + LADDERS[next];
+        positions[current] = LADDERS[next];
+        placeToken(current);
+        await sleep(550);
+      } else if (SNAKES[next]) {
+        messageEl.textContent = "Snake! Slide to " + SNAKES[next];
+        positions[current] = SNAKES[next];
+        placeToken(current);
+        await sleep(550);
+      }
+
+      if (positions[current] === 100) {
+        winner = current;
+        messageEl.textContent = "🎉 Player " + winner + " wins!";
+        busy = false;
+        setTurnUI();
+        return;
+      }
+
+      current = current === 1 ? 2 : 1;
+      busy = false;
+      setTurnUI();
+    }
+
+    function reset() {
+      positions = [0, 0, 0];
+      current = 1;
+      busy = false;
+      winner = null;
+      diceEl.textContent = "?";
+      messageEl.textContent = "";
+      placeToken(1);
+      placeToken(2);
+      setTurnUI();
+    }
+
+    buildBoard();
+    reset();
+    rollBtn.addEventListener("click", roll);
+    resetBtn.addEventListener("click", reset);
+  </script>
+</body>
+</html>
